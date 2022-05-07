@@ -1,0 +1,177 @@
+import random
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Circle
+from shapely.geometry import Polygon,Point
+from matplotlib.patches import Rectangle
+
+
+class tree:
+
+    def __init__(self, start, end, mapdim, obslist):
+
+        self.obstacle_list = obslist 
+        self.startx, self.starty = start
+        self.endx, self.endy = end
+        self.mapw, self.maph = mapdim
+
+        self.listofnodes = []
+        self.parent = []
+        self.path = []
+
+        self.listofnodes.append((self.startx, self.starty))
+        self.parent.append((self.startx, self.starty))
+
+        plt.xlim([0, self.mapw])
+        plt.ylim([0, self.maph])
+
+        start = Circle((self.startx, self.starty), 2, color = '#1DA306')
+        end = Circle((self.endx, self.endy), 4, color = '#B70000')
+
+        plt.gca().add_patch(start)
+        plt.gca().add_patch(end)
+
+    def Distance(self, xprev, yprev, x, y): 
+        dist = ((xprev-x)**2+(yprev-y)**2)**0.5
+        return dist
+
+    def AddNode(self, x, y):
+        node = (x, y)
+        self.listofnodes.append(node)
+
+    def NearestNode(self, x, y): 
+        list = self.listofnodes.copy()
+        xnear, ynear = list.pop()
+        dist = self.Distance(xnear, ynear, x, y)
+
+        while list != []:
+            xt, yt = list.pop()
+            if self.Distance(xt, yt, x, y) < dist:
+                dist = self.Distance(xt, yt, x, y)
+                xnear, ynear = xt, yt
+
+        return xnear, ynear        
+
+    def DrawNode(self, x, y): 
+        node = Circle((x, y), 0.5, color = '#99E6FF')
+        plt.gca().add_patch(node)
+
+    def RandomPoints(self):
+        x = int(random.uniform(1, self.mapw - 1))
+        y = int(random.uniform(1, self.maph - 1))
+        return x, y
+
+    def DrawLine(self, x1, x2, y1, y2):
+        plt.plot([x1,x2],[y1,y2], color='#99E6FF')
+
+    def FindNewnode(self, xp, yp, x, y): 
+        dist = ((xp-x)**2+(yp-y)**2)**0.5
+        a=5
+        b=dist-5
+        xnew = (a*x + b*xp)/(a+b)
+        ynew = (a*y + b*yp)/(a+b)
+        return xnew, ynew
+
+    def IsOut(self, xp, yp, xnew, ynew):
+        dist = ((xp-xnew)**2+(yp-ynew)**2)**0.5
+        if dist > 5:
+            return True
+        else:
+            return False
+
+    def NotReachedEnd(self, xp, yp):
+        dist = ((xp - self.endx)**2+(yp - self.endy)**2)**0.5
+        if dist>4:
+            return True
+        else:
+            return False
+
+    def AddParent(self, x, y):
+        self.parent.append((x, y)) #nth element is parent of nth node
+
+    def PathFinder(self):
+        L = len(self.listofnodes)
+        self.path.append((self.endx, self.endy))
+        newnode = self.listofnodes[L-1]
+        self.path.append(newnode)
+        while (newnode != (self.startx, self.starty)):
+            n = self.listofnodes.index(newnode)
+            newnode = self.parent[n]
+            self.path.append(newnode)
+
+    def DrawPath(self):
+        self.PathFinder()
+        Pathnodes = self.path.copy()
+        L = len(self.path)
+        n = L-1
+        for i in range (0, n):
+            x1, y1 = Pathnodes[n]
+            x2, y2 = Pathnodes[n-1]
+            plt.plot([x1, x2], [y1, y2], color = '#00AFE8')
+            n = n-1
+        
+    def DrawObs(self):
+        n = len(self.obstacle_list)
+        for i in range(n):
+            poly = Polygon(self.obstacle_list[i])
+            plt.plot(*poly.exterior.xy)
+           
+    def DoesNotBelong(self, x, y):
+        n = len(self.obstacle_list)
+        coord = np.array([x,y])
+        p = Point(coord)
+        for i in range(n):
+            poly = Polygon(self.obstacle_list[i])
+            if p.within(poly):
+                return False
+        return True
+  
+    def DoesNotIntersect(self, x, y, xn, yn):
+        i=1
+        while i<101:
+            xco = (x*(100-i)+xn*i)/100
+            yco = (y*(100-i)+yn*i)/100
+            if not self.DoesNotBelong(xco,yco):
+                return False
+            i=i+1
+        return True
+
+
+mapdimensions = (100, 100)
+startpoint = (1, 1)
+endpoint = (100, 1)
+listofobstacles = [[(40, 0), (40, 40), (50, 50), (60, 40), (50, 40)],[(10, 10), (20, 20), (10, 30), (0, 20)],[(50, 60), (70, 80), (60, 100), (40, 80), (45, 100)],[(70, 20), (90, 20), (80, 40)]]
+
+mytree = tree(startpoint, endpoint, mapdimensions,listofobstacles)
+
+mytree.DrawObs()
+
+xn = xnewnode = startpoint[0]
+yn = ynewnode = startpoint[1]
+while mytree.NotReachedEnd(xnewnode, ynewnode): 
+
+    randx, randy = mytree.RandomPoints()
+    
+    x, y = mytree.NearestNode(randx, randy)
+
+    if mytree.IsOut(x, y, randx, randy):
+        posx, posy = mytree.FindNewnode(x, y, randx, randy)
+
+    else:
+        posx = randx
+        posy = randy
+    
+    if mytree.DoesNotBelong(posx, posy) and mytree.DoesNotIntersect(posx,posy,x,y):
+        xn = x
+        yn = y
+        xnewnode = posx
+        ynewnode = posy
+    
+        mytree.DrawNode(xnewnode, ynewnode) 
+        mytree.DrawLine(xn, xnewnode, yn, ynewnode)
+        mytree.AddNode(xnewnode, ynewnode) 
+        mytree.AddParent(xn, yn)
+
+mytree.DrawPath()
+
+plt.show()
